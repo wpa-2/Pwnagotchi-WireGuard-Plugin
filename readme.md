@@ -56,7 +56,7 @@ sudo apt-get install wireguard-tools openresolv rsync git
 1.  Clone the plugin repository from GitHub into your home directory.
     ```bash
     cd /home/pi/
-    git clone [https://github.com/your-username/pwnagotchi-wireguard-plugin.git](https://github.com/your-username/pwnagotchi-wireguard-plugin.git)
+    git clone https://github.com/wpa-2/Pwnagotchi-WireGuard-Plugin.git
     ```
 
 2.  Move the plugin file to the Pwnagotchi's custom plugins directory.
