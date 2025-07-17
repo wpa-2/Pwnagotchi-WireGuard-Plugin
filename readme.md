@@ -87,6 +87,17 @@ sudo apt-get install wireguard-tools openresolv rsync git
     # --- Handshake Sync Configuration ---
     main.plugins.wireguard.server_user = "your-user-on-server"
     main.plugins.wireguard.handshake_dir = "/path/to/handshakes/on/server/"
+
+    # --- Optional WireGuard Plugin Settings ---
+    # How often to sync in seconds (default is 600 = 10 minutes)
+    main.plugins.wireguard.sync_interval_secs = 600
+
+    # The path to the handshakes on the Pwnagotchi
+    main.plugins.wireguard.source_handshake_path = "/home/pi/handshakes/"
+
+    # The temporary path for the WireGuard config file
+    main.plugins.wireguard.wg_config_path = "/tmp/wg0.conf"
+
     ```
 
 ---
