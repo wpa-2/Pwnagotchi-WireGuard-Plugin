@@ -2,7 +2,7 @@ import logging
 import os
 import subprocess
 import time
-import socket
+import socket # Import socket to get the hostname
 
 import pwnagotchi.plugins as plugins
 import pwnagotchi.ui.fonts as fonts
@@ -11,9 +11,9 @@ from pwnagotchi.ui.view import BLACK
 
 class WireGuard(plugins.Plugin):
     __author__ = 'WPA2'
-    __version__ = '1.5'
+    __version__ = '1.8.0'
     __license__ = 'GPL3'
-    __description__ = 'A configurable plugin to sync handshakes and backups to an auto-organized remote folder.'
+    __description__ = 'A configurable plugin to sync handshakes and backups with optimized performance.'
 
     def __init__(self):
         self.ready = False
@@ -55,18 +55,10 @@ class WireGuard(plugins.Plugin):
             text_font=fonts.Small
         ))
 
-    def _update_status(self, new_status, temporary=False, duration=15):
-        original_status = self.status
+    def _update_status(self, new_status):
+        """Helper method to update the status variable and the UI element's value."""
         self.status = new_status
         self.ui.set('wg_status', self.status)
-        self.ui.update()
-        
-        if temporary:
-            time.sleep(duration)
-            if self.status == new_status:
-                self.status = original_status
-                self.ui.set('wg_status', self.status)
-                self.ui.update()
 
     def _connect(self):
         max_retries = 5
@@ -95,7 +87,7 @@ AllowedIPs = {server_vpn_ip}/32
 PersistentKeepalive = 25
 """
             if 'preshared_key' in self.options:
-                conf += f"PresharedKey = {self.options['preshared_key']}\n"
+                conf += f"Preshared_key = {self.options['preshared_key']}\n"
 
             try:
                 with open(wg_config_path, "w") as f:
@@ -128,13 +120,10 @@ PersistentKeepalive = 25
         server_vpn_ip = ".".join(self.options['address'].split('.')[:3]) + ".1"
         remote_base_dir = self.options['remote_base_dir']
         
-        # Define remote paths
         remote_device_dir = os.path.join(remote_base_dir, self.hostname)
         remote_handshakes_dir = os.path.join(remote_device_dir, "handshakes/")
 
         try:
-            # Step 1: Ensure the remote directories exist before syncing.
-            logging.info(f"[WireGuard] Ensuring remote directory exists: {remote_handshakes_dir}")
             ssh_options = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null"]
             subprocess.run(
                 ["ssh"] + ssh_options + [f"{server_user}@{server_vpn_ip}", f"mkdir -p {remote_handshakes_dir}"],
@@ -143,10 +132,10 @@ PersistentKeepalive = 25
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             stderr_output = e.stderr.strip() if hasattr(e, 'stderr') and e.stderr else "Could not create remote directory."
             logging.error(f"[WireGuard] Failed to create remote directory: {stderr_output}")
-            self._update_status("Sync Failed", temporary=True)
+            self._update_status("Sync Failed")
             return
 
-        # 2. Sync Handshakes
+        # Sync Handshakes
         source_handshakes = self.options['source_handshake_path']
         handshake_command = [
             "rsync", "-avz", "--stats", "-e", 
@@ -164,15 +153,14 @@ PersistentKeepalive = 25
                     break
             
             logging.info(f"[WireGuard] Handshake sync complete. Transferred {new_files} new files.")
-            self._update_status(f"Synced: {new_files}", temporary=True)
             self.last_sync_time = time.time()
 
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             stderr_output = e.stderr.strip() if hasattr(e, 'stderr') and e.stderr else "Handshake rsync command failed."
             logging.error(f"[WireGuard] Handshake sync failed: {stderr_output}")
-            self._update_status("Sync Failed", temporary=True)
+            self._update_status("Sync Failed")
 
-        # 3. Sync Backup File (if enabled)
+        # Sync Backup File (if enabled)
         if self.options.get('sync_backup', False):
             logging.info("[WireGuard] Starting backup file sync...")
             backup_file_name = f"{self.hostname}-backup.tar.gz"
@@ -182,7 +170,7 @@ PersistentKeepalive = 25
                 backup_command = [
                     "rsync", "-avz", "-e",
                     "ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o UserKnownHostsFile=/dev/null",
-                    backup_file_path, f"{server_user}@{server_vpn_ip}:{remote_device_dir}/" # Note the trailing slash
+                    backup_file_path, f"{server_user}@{server_vpn_ip}:{remote_device_dir}/"
                 ]
                 try:
                     subprocess.run(backup_command, check=True, capture_output=True, text=True)
@@ -192,6 +180,9 @@ PersistentKeepalive = 25
                     logging.error(f"[WireGuard] Backup file sync failed: {stderr_output}")
             else:
                 logging.warning(f"[WireGuard] Backup file not found at '{backup_file_path}', skipping sync.")
+        
+        # After all sync operations, revert status to Up
+        self._update_status("Up")
 
     def on_internet_available(self, agent):
         if not self.ready:
